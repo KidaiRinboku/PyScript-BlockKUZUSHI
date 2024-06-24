@@ -1,0 +1,131 @@
+<!-- wp:html -->
+<canvas id="gameCanvas" width="480" height="320" style="background: #000;"></canvas>
+<button id="startButton" style="display: block; margin: 20px auto;">Start Game</button>
+
+<py-script>
+from js import document, window
+from pyodide.ffi import create_proxy
+
+canvas = document.getElementById("gameCanvas")
+context = canvas.getContext("2d")
+
+# Ball properties
+ballRadius = 10
+x = canvas.width / 2
+y = canvas.height - 30
+dx = 2
+dy = -2
+
+# Paddle properties
+paddleHeight = 10
+paddleWidth = 75
+paddleX = (canvas.width - paddleWidth) / 2
+paddleDx = 5
+rightPressed = False
+leftPressed = False
+
+# Brick properties
+brickRowCount = 3
+brickColumnCount = 5
+brickWidth = 75
+brickHeight = 20
+brickPadding = 10
+brickOffsetTop = 30
+brickOffsetLeft = 30
+bricks = [[{"x": 0, "y": 0, "status": 1} for _ in range(brickRowCount)] for _ in range(brickColumnCount)]
+
+# Key press event handlers
+def keyDownHandler(event):
+    global rightPressed, leftPressed
+    if event.key == "Right" or event.key == "ArrowRight":
+        rightPressed = True
+    elif event.key == "Left" or event.key == "ArrowLeft":
+        leftPressed = True
+
+def keyUpHandler(event):
+    global rightPressed, leftPressed
+    if event.key == "Right" or event.key == "ArrowRight":
+        rightPressed = False
+    elif event.key == "Left" or event.key == "ArrowLeft":
+        leftPressed = False
+
+# Draw functions
+def drawBall():
+    context.beginPath()
+    context.arc(x, y, ballRadius, 0, 2 * 3.14159)
+    context.fillStyle = "#0095DD"
+    context.fill()
+    context.closePath()
+
+def drawPaddle():
+    context.beginPath()
+    context.rect(paddleX, canvas.height - paddleHeight, paddleWidth, paddleHeight)
+    context.fillStyle = "#0095DD"
+    context.fill()
+    context.closePath()
+
+def drawBricks():
+    for c in range(brickColumnCount):
+        for r in range(brickRowCount):
+            if bricks[c][r]["status"] == 1:
+                brickX = (c * (brickWidth + brickPadding)) + brickOffsetLeft
+                brickY = (r * (brickHeight + brickPadding)) + brickOffsetTop
+                bricks[c][r]["x"] = brickX
+                bricks[c][r]["y"] = brickY
+                context.beginPath()
+                context.rect(brickX, brickY, brickWidth, brickHeight)
+                context.fillStyle = "#0095DD"
+                context.fill()
+                context.closePath()
+
+def collisionDetection():
+    global dy
+    for c in range(brickColumnCount):
+        for r in range(brickRowCount):
+            b = bricks[c][r]
+            if b["status"] == 1:
+                if x > b["x"] and x < b["x"] + brickWidth and y > b["y"] and y < b["y"] + brickHeight:
+                    dy = -dy
+                    b["status"] = 0
+
+# Game loop
+def draw(event=None):
+    global x, y, dx, dy, paddleX
+    context.clearRect(0, 0, canvas.width, canvas.height)
+    drawBricks()
+    drawBall()
+    drawPaddle()
+    collisionDetection()
+
+    if x + dx > canvas.width - ballRadius or x + dx < ballRadius:
+        dx = -dx
+    if y + dy < ballRadius:
+        dy = -dy
+    elif y + dy > canvas.height - ballRadius:
+        if x > paddleX and x < paddleX + paddleWidth:
+            dy = -dy
+        else:
+            document.location.reload()
+
+    x += dx
+    y += dy
+
+    if rightPressed and paddleX < canvas.width - paddleWidth:
+        paddleX += paddleDx
+    elif leftPressed and paddleX > 0:
+        paddleX -= paddleDx
+
+    window.requestAnimationFrame(create_proxy(draw))
+
+# Event listeners
+document.addEventListener("keydown", create_proxy(keyDownHandler))
+document.addEventListener("keyup", create_proxy(keyUpHandler))
+
+# Start game on button click
+def startGame(event):
+    document.getElementById("startButton").style.display = "none"
+    draw()
+
+document.getElementById("startButton").addEventListener("click", create_proxy(startGame))
+</py-script>
+<!-- /wp:html -->
